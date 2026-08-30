@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OFD Viewer</title>
+  <!-- Element UI CSS（组件样式依赖） -->
+  <link rel="stylesheet" href="https://unpkg.com/element-ui@2.15.14/lib/theme-chalk/index.css">
+  <!-- OFD Viewer 样式（与 ofd-lzy.umd.min.js 同目录） -->
+  <link rel="stylesheet" href="./ofd-lzy.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; }
+    #app { width: 100%; height: 100%; }
+    .viewer-tip {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100%; color: #909399; font-size: 14px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      text-align: center; padding: 20px;
+    }
+    .viewer-tip code { background: #f5f5f5; padding: 2px 8px; border-radius: 3px; margin-top: 8px; font-size: 12px; color: #333; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <ofd-element
+      v-if="ofdUrl"
+      :url="ofdUrl"
+      :freetype-enabled="freetypeEnabled"
+      :freetype-max-memory-m-b="freetypeMaxMemoryMB"
+    ></ofd-element>
+    <div v-else class="viewer-tip">
+      <p>未指定 OFD 文件</p>
+      <p>请通过 URL 参数指定，例如：</p>
+      <code>ofd-lzy.html?filename=/sample.ofd</code>
+    </div>
+  </div>
+
+  <!-- Vue 2.7+（UMD 外部依赖，函数 ref 需要 2.7+） -->
+  <script src="https://unpkg.com/vue@2.7.16/dist/vue.min.js"></script>
+  <!-- Element UI（UMD 外部依赖） -->
+  <script src="https://unpkg.com/element-ui@2.15.14/lib/index.js"></script>
+  <!-- OFD Viewer UMD 包（worker 已内联，需与本页同目录） -->
+  <script src="./ofd-lzy.umd.min.js"></script>
+
+  <script>
+    if (window.location.protocol === 'file:') {
+      document.getElementById('app').innerHTML =
+        '<div class="viewer-tip">' +
+        '<p>⚠️ 本页面必须通过 HTTP 服务访问</p>' +
+        '<p>Web Worker 与 fetch() 在 file:// 协议下无法工作</p>' +
+        '</div>'
+    } else {
+      var lib = window['ofd-lzy']
+      if (lib && lib.default && typeof lib.default.install === 'function') {
+        Vue.use(lib.default)
+      } else if (lib && typeof lib.install === 'function') {
+        Vue.use(lib)
+      }
+      if (lib && lib.OFDElement) {
+        Vue.component('ofd-element', lib.OFDElement)
+      }
+
+      var params = new URLSearchParams(window.location.search)
+      var freetypeParam = params.get('freetype')
+      var maxMemoryParam = parseInt(params.get('maxMemory'), 10)
+
+      var app = new Vue({
+        el: '#app',
+        data: {
+          ofdUrl: params.get('filename') || '',
+          freetypeEnabled: freetypeParam === null ? true : freetypeParam !== 'false',
+          freetypeMaxMemoryMB: isNaN(maxMemoryParam) ? 30 : maxMemoryParam
+        },
+        methods: {
+          openBlob: function (blob) {
+            if (this.ofdUrl && this.ofdUrl.indexOf('blob:') === 0) {
+              URL.revokeObjectURL(this.ofdUrl)
+            }
+            this.ofdUrl = URL.createObjectURL(blob)
+          }
+        }
+      })
+
+      // 供父页面（Vue 3 / React iframe 集成）传入本地文件：
+      // iframe.contentWindow.postMessage({ type: 'ofd-lzy:load', buffer: await file.arrayBuffer() }, '*')
+      window.addEventListener('message', function (event) {
+        var msg = event.data
+        if (msg && msg.type === 'ofd-lzy:load' && msg.buffer) {
+          app.openBlob(new Blob([msg.buffer], { type: 'application/ofd' }))
+        }
+      })
+    }
+  </script>
+</body>
+</html>
