@@ -313,3 +313,5 @@ api.toPdf()
 > 如需商业授权，请通过 [GitHub Issues](https://github.com/Yusuf-dz/ofd-lzy/issues) 联系。
 
 完整协议文本见 [LICENSE](./LICENSE)。
+
+关注公众号： ![QR公众号](https://raw.githubusercontent.com/Yusuf-dz/ofd-lzy/main/docs/img/10-QR.jpeg)
